@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Кино-профиль и подбор</title>
+<style>
+:root {
+  --bg: #ffffff; --text: #1a1a1a; --muted: #666; --accent: #1a73e8;
+  --border: #e0e0e0; --card-bg: #fafafa; --star-bg: #fff8e1; --star-border: gold;
+  --good: #2e7d32; --bad: #c62828; --plan: #1565c0; --watch: #ef6c00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a; --text: #e0e0e0; --muted: #999; --accent: #4a90e2;
+    --border: #333; --card-bg: #252525; --star-bg: #2a2410; --star-border: gold;
+    --good: #66bb6a; --bad: #ef5350; --plan: #64b5f6; --watch: #ffa726;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  max-width: 940px; margin: 0 auto; padding: 20px; line-height: 1.55;
+  color: var(--text); background: var(--bg);
+}
+h1 { font-size: 24px; margin: 6px 0; }
+.subtitle { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+h2 { font-size: 20px; margin: 34px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+details.taste, .keybox { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+details.taste summary { font-weight: 600; cursor: pointer; font-size: 16px; }
+details.taste ul { margin: 10px 0 0; padding-left: 18px; }
+details.taste li { margin: 5px 0; }
+.keybox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+.keybox input { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 13px; min-width: 200px; }
+.keybox a { color: var(--accent); }
+.keybox .ok { color: var(--good); font-weight: 600; }
+#bar { position: sticky; top: 0; background: var(--bg); padding: 10px 20px; margin: 0 -20px 18px;
+  border-bottom: 1px solid var(--border); z-index: 50; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#search { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 13px; min-width: 130px; }
+.chip { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 4px 11px; font-size: 12px; cursor: pointer; }
+.chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+#progress { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 600; }
+.film { display: flex; gap: 14px; margin: 14px 0; padding: 14px 16px; background: var(--card-bg);
+  border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 8px 8px 0; }
+.film.top { border-left-color: var(--star-border); background: var(--star-bg); }
+.film.watched-done { opacity: 0.6; }
+.poster-wrap { flex-shrink: 0; width: 110px; }
+.poster { width: 110px; height: 163px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); display: block; background: var(--bg); cursor: zoom-in; transition: opacity .15s; }
+.poster:hover { opacity: 0.85; }
+.poster-ph { width: 110px; height: 163px; border-radius: 6px; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px;
+  font-size: 12px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #3a4a6b, #1f2a44); line-height: 1.3; }
+.kp-link { display: block; text-align: center; font-size: 11px; margin-top: 5px; color: var(--accent); text-decoration: none; }
+.kp-link:hover { text-decoration: underline; }
+.imdb-badge { display: inline-block; background: #f5c518; color: #000; font-weight: 700; font-size: 11px; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+.body { flex: 1; min-width: 0; }
+.film h3 { font-size: 16px; margin: 0 0 4px; }
+.film .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.film .desc { font-size: 13.5px; margin-bottom: 7px; }
+.film .why { font-size: 13px; margin-bottom: 9px; padding: 6px 9px; background: var(--bg); border-radius: 6px; border: 1px dashed var(--border); }
+.film .conf { font-weight: 600; color: var(--accent); }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.st-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.st-btn.on[data-st="plan"] { background: var(--plan); color: white; border-color: var(--plan); }
+.st-btn.on[data-st="watching"] { background: var(--watch); color: white; border-color: var(--watch); }
+.st-btn.on[data-st="done"] { background: var(--good); color: white; border-color: var(--good); }
+.st-btn.on[data-st="nope"] { background: var(--bad); color: white; border-color: var(--bad); }
+.rating { display: inline-flex; gap: 1px; margin-left: 4px; }
+.star { cursor: pointer; font-size: 17px; line-height: 1; color: var(--border); user-select: none; }
+.star.lit { color: var(--star-border); }
+.rating-label { font-size: 12px; color: var(--muted); margin-left: 4px; min-width: 46px; }
+.comment { width: 100%; min-height: 36px; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 9px; font-size: 13px; font-family: inherit; resize: vertical; }
+.userScore { font-size: 12px; color: var(--good); font-weight: 600; }
+.film.hidden { display: none !important; }
+#toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--accent);
+  color: white; padding: 9px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 200; }
+#toast.show { opacity: 1; }
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 300; display: none;
+  align-items: center; justify-content: center; cursor: zoom-out; padding: 24px; }
+.lightbox.show { display: flex; }
+.lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,0.6); }
+.lightbox-close { position: fixed; top: 18px; right: 22px; width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); color: #fff; border: none; font-size: 26px; cursor: pointer; z-index: 301; }
+.lightbox-close:hover { background: rgba(255,255,255,0.3); }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  #bar { margin: 0 -12px 14px; padding: 8px 12px; }
+  #progress { width: 100%; margin: 4px 0 0; }
+  .poster-wrap, .poster, .poster-ph { width: 84px; }
+  .poster, .poster-ph { height: 124px; }
+}
+</style>
+</head>
+<body>
+
+<h1>🎬 Кино-профиль и подбор</h1>
+<div class="subtitle">Полноценный каталог: постеры, описания, твои отметки. Сохраняется в облаке — синхронно на всех твоих устройствах. Обновлено: 2026-06-04.</div>
+
+<div class="keybox">
+  <span>🖼 Постеры и IMDb-рейтинги:</span>
+  <input id="omdb-key" type="text" placeholder="вставь бесплатный OMDb-ключ">
+  <span>— получить за минуту: <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">omdbapi.com/apikey</a></span>
+  <span id="key-status"></span>
+</div>
+
+<details class="taste">
+  <summary>📌 Свод твоего вкуса (нажми, чтобы развернуть)</summary>
+  <ul>
+    <li><strong>Иерархия:</strong> СЮЖЕТ №1 (продуманная честная интрига, раскрываемая по деталям) → ДИАЛОГИ №2 (острые, веришь) → актёрская игра сильно ниже. Обязательна ЦЕЛЬ/смысл.</li>
+    <li><strong>Вектор:</strong> интеллектуальное &gt; экшен. Драки/разбой — не твоё.</li>
+    <li><strong>Любишь:</strong> концепт-головоломки (Нолан, Разделение, Тьма); реальные истории про деньги/амбиции/аферы (Соцсеть, Игра на понижение); моральную неоднозначность без простого вердикта.</li>
+    <li><strong>Маркеры:</strong> Нолан · Финчер · Гиллиган · ДиКаприо · Гай Ричи · Соркин. Жанр не барьер, если продакшн+сюжет+герои топ (Игра престолов).</li>
+    <li><strong>Темп:</strong> медленное терпишь только с ранним крючком (иначе бросаешь — «Сол», «Озарк»).</li>
+    <li><strong>Контекст:</strong> [соло] — сложное/тёмное; [парно] — доступнее, не жестокое; [оба]. Границы: не экшен · не медленное-без-крючка · не лёгкий глянцевый whodunit.</li>
+  </ul>
+</details>
+
+<div id="bar">
+  <input id="search" type="search" placeholder="Поиск…">
+  <button class="chip active" data-f="all">Все</button>
+  <button class="chip" data-f="film">🎬 Фильмы</button>
+  <button class="chip" data-f="series">📺 Сериалы</button>
+  <button class="chip" data-f="top">⭐ ТОП-6</button>
+  <button class="chip" data-f="plan">👀 В планах</button>
+  <button class="chip" data-f="done">✅ Посмотрел</button>
+  <span id="progress"></span>
+</div>
+
+<h2>⭐ ТОП-6 на 10/10</h2>
+<div data-sec="top"></div>
+<h2>👀 Очередь на просмотр</h2>
+<div data-sec="queue"></div>
+<h2>✅ Уже просмотрено (твои оценки)</h2>
+<div class="subtitle" style="margin-top:-4px">Для справки и пересмотра. Можешь дописать, почему понравилось/нет.</div>
+<div data-sec="watched"></div>
+
+<div id="toast"></div>
+
+<script>
+// ===== ДАННЫЕ: t рус, en для OMDb, y год, desc описание =====
+const TOP = [
+  {id:'memento', t:'Помни (Memento)', en:'Memento', y:'2001', type:'film', m:'фильм · Нолан · 2000 · [соло]',
+   desc:'Мужчина с потерей кратковременной памяти ищет убийцу жены, оставляя себе подсказки татуировками и снимками. История смонтирована задом наперёд — зритель дезориентирован так же, как герой.',
+   why:'Концепт-головоломка с обратным таймлайном — ДНК «Начала», твой режиссёр №1.', conf:'★ ЛОК ~10/10'},
+  {id:'severance2', t:'Разделение, сезон 2', en:'Severance', y:'2022', type:'series', m:'сериал · Apple · 2025 · [оба]',
+   desc:'Сотрудники корпорации соглашаются на операцию, расщепляющую сознание на «рабочее» и «личное» — две версии человека, не знающие друг друга. Концепт-мистери о труде, памяти и идентичности.',
+   why:'Любил S1; концепт-головоломка в твоём векторе; новинка 2025, которую ты просил.', conf:'★ near-лок 9-10'},
+  {id:'mrrobot', t:'Мистер Робот', en:'Mr. Robot', y:'2015', type:'series', m:'сериал · 2015-19 · [соло]',
+   desc:'Хакер с социофобией и расщеплённой психикой втягивается в анархо-группу, готовящую крах крупнейшей корпорации мира. Ненадёжный рассказчик, технотриллер с поворотами о самой реальности.',
+   why:'Ненадёжный рассказчик + twist, как «Бойцовский клуб»; единый авторский голос.', conf:'лок 9'},
+  {id:'zodiac', t:'Зодиак', en:'Zodiac', y:'2007', type:'film', m:'фильм · Финчер · 2007 · [соло/оба]',
+   desc:'Реальная история: карикатурист, репортёр и детективы десятилетиями одержимо охотятся на неуловимого серийного убийцу Зодиака в Сан-Франциско 70-х. Процедурал об одержимости; дело так и не закрыто.',
+   why:'Финчер (как «Семь») + реальный детектив; ранний крючок снимает риск медленности.', conf:'сильный 8.5-9'},
+  {id:'margincall', t:'Предел риска', en:'Margin Call', y:'2011', type:'film', m:'фильм · 2011 · [оба]',
+   desc:'За одну ночь аналитики инвестбанка осознают, что компания на грани краха, который запустит мировой кризис 2008-го. Камерная драма из острых диалогов и моральных решений в коридорах власти.',
+   why:'Жила денег, но плотный диалоговый chamber-piece — не вайб, не экшен.', conf:'сильный 8.5'},
+  {id:'acv', t:'Apple Cider Vinegar', en:'Apple Cider Vinegar', y:'2025', type:'series', m:'сериал · Netflix · 2025 · [оба]',
+   desc:'Реальная история Белль Гибсон — инфлюенсера, выдумавшей смертельный рак, чтобы продавать «исцеление» едой и собрать империю. Сатира на велнес-культуру и самозванство.',
+   why:'Твоя жила самозванцев («Анна»/«Аферист») + свежий сериал. ОГОВОРКА: за исполнение не ручаюсь, не смотрел.', conf:'bullseye темы, не лок'},
+];
+const QUEUE = [
+  {id:'enemy', t:'Враг (Enemy)', en:'Enemy', y:'2013', type:'film', m:'фильм · Вильнёв · 2013 · [соло]',
+   desc:'Преподаватель случайно находит своего точного двойника-актёра и начинает одержимо его выслеживать. Тревожная символичная головоломка Вильнёва о двойственности личности.',
+   why:'Психологическая головоломка-концепт. Ты загорелся по трейлеру.'},
+  {id:'nocturnal', t:'Под покровом ночи', en:'Nocturnal Animals', y:'2016', type:'film', m:'фильм · Том Форд · 2016 · [соло]',
+   desc:'Галеристка читает рукопись бывшего мужа — жестокий роман, который оказывается завуалированной местью за прошлое. Фильм внутри фильма, элегантный twist-триллер.',
+   why:'Интеллектуальный twist-триллер, история внутри истории. Высокий интерес.'},
+  {id:'departed', t:'Отступники', en:'The Departed', y:'2006', type:'film', m:'фильм · Скорсезе+ДиКаприо · 2006 · [соло]',
+   desc:'Крот мафии в полиции и коп под прикрытием в банде одновременно охотятся друг за другом в Бостоне. Криминальный триллер Скорсезе с двойной игрой и жёстким финалом.',
+   why:'ДиКаприо + криминал с twist. Пересмотр (не помнишь).'},
+  {id:'prisoners', t:'Пленницы (Prisoners)', en:'Prisoners', y:'2013', type:'film', m:'фильм · Вильнёв · 2013 · [соло]',
+   desc:'После похищения двух девочек отчаявшийся отец берёт правосудие в свои руки, пока методичный детектив идёт по другому следу. Мрачный продуманный триллер о морали и границах.',
+   why:'Нолан-родственный продуманный триллер, честная интрига.'},
+  {id:'exmachina', t:'Из машины (Ex Machina)', en:'Ex Machina', y:'2014', type:'film', m:'фильм · 2014 · [оба]',
+   desc:'Программист приезжает тестировать человекоподобный ИИ в изолированном доме гениального создателя — и перестаёт понимать, кто кем манипулирует. Камерный sci-fi о сознании.',
+   why:'Умный sci-fi про ИИ, концепт (как «Чёрное зеркало»).'},
+  {id:'wallstreet', t:'Уолл-стрит', en:'Wall Street', y:'1987', type:'film', m:'фильм · Оливер Стоун · 1987 · [оба]',
+   desc:'Молодой амбициозный брокер попадает под влияние безжалостного корпоративного хищника Гордона Гекко с его кредо «жадность — это хорошо». Классика о деньгах, амбициях и цене.',
+   why:'Жадность/амбиции/деньги на диалогах, не экшен.'},
+  {id:'boilerroom', t:'Бойлерная (Boiler Room)', en:'Boiler Room', y:'2000', type:'film', m:'фильм · 2000 · [оба]',
+   desc:'Парень устраивается в подозрительную брокерскую контору, где агрессивно впаривают мусорные акции, и постепенно понимает суть аферы. Динамичная драма об азарте и обмане.',
+   why:'Динамичные продажи акций, афера — жила денег (драйв+диалог).'},
+  {id:'americanhustle', t:'Афера по-американски', en:'American Hustle', y:'2013', type:'film', m:'фильм · 2013 · [оба]',
+   desc:'Пара профессиональных аферистов вынуждена помогать ФБР в операции против коррумпированных политиков. По мотивам реального дела Abscam, стильный ансамбль конца 70-х.',
+   why:'Аферисты + реальное дело. NB: держится на вайбе/игре — риск «хорошо, не вау».'},
+  {id:'blackbag', t:'Чёрная сумка (Black Bag)', en:'Black Bag', y:'2025', type:'film', m:'фильм · Содерберг · 2025 · [оба]',
+   desc:'Разведчик расследует утечку секретов, и главный подозреваемый — его собственная жена-агент. Умный шпионский триллер Содерберга о доверии, браке и лояльности.',
+   why:'Психология и интеллект, не пустой экшен. Бланшетт+Фассбендер.'},
+  {id:'flowermoon', t:'Убийцы цветочной луны', en:'Killers of the Flower Moon', y:'2023', type:'film', m:'фильм · Скорсезе+ДиКаприо · 2023 · [соло]',
+   desc:'Реальная история серии убийств индейцев осейджей ради нефтяных денег в Оклахоме 1920-х и расследования молодого ФБР. Историческая эпопея Скорсезе.',
+   why:'ДиКаприо + реальное мрачное. Оговорка: длинный/неспешный — на грани «медленного».'},
+  {id:'hisandhers', t:'His & Hers', en:'His & Hers', y:'2025', type:'series', m:'сериал · 2025 · [парно]',
+   desc:'Телеведущая возвращается в родной город расследовать убийство — и ведущий дело детектив начинает подозревать её саму. Twist-триллер о том, что у каждой истории две версии.',
+   why:'Twist-триллер, можно вдвоём.'},
+  {id:'housemaid', t:'Горничная (The Housemaid)', en:'The Housemaid', y:'2025', type:'film', m:'фильм · 2025 · [соло]',
+   desc:'Молодая женщина нанимается прислугой в дом богатой пары с тёмными секретами — и игра в кошки-мышки переворачивается. Триллер с поворотами.',
+   why:'Интеллектуальный triller с twist. (Трейлер не зацепил — низкий приоритет.)'},
+  {id:'altruists', t:'The Altruists', en:'The Altruists', y:'2025', type:'series', m:'сериал · Netflix · анонс · [оба]',
+   desc:'Сериал о взлёте и крахе крипто-биржи FTX и её основателе Сэме Бэнкман-Фриде, укравшем миллиарды клиентских средств. Реальная финансовая афера века.',
+   why:'Твоя жила реальных афер. Проверить, вышел ли — пока анонс.'},
+];
+const WATCHED = [
+  {id:'w_residence', t:'Резиденция', en:'The Residence', y:'2025', type:'series', s:'⭐⭐ восторг', desc:'Эксцентричный детектив расследует убийство во время госужина в Белом доме, перебирая 130+ комнат. Насыщенный whodunit с острыми диалогами.'},
+  {id:'w_socialnet', t:'Социальная сеть', en:'The Social Network', y:'2010', type:'film', s:'⭐⭐ идеальный', desc:'История создания Facebook и судов вокруг неё. Диалоги Соркина, амбиции, предательство, реальные события.'},
+  {id:'w_arrival', t:'Прибытие', en:'Arrival', y:'2016', type:'film', s:'⭐⭐ потрясающий', desc:'Лингвист пытается понять язык прилетевших инопланетян — и сам её способ мышления меняется. Умный sci-fi Вильнёва о времени и языке.'},
+  {id:'w_bigshort', t:'Игра на понижение', en:'The Big Short', y:'2015', type:'film', s:'⭐⭐ потрясающий', desc:'Реальная история инвесторов, предсказавших крах ипотечного рынка 2008-го и заработавших на нём. Динамика, острые диалоги, разъяснение афер.'},
+  {id:'w_inception', t:'Начало', en:'Inception', y:'2010', type:'film', s:'⭐⭐ восторг', desc:'Команда воров проникает в сны, чтобы внедрить идею. Многослойная головоломка Нолана о реальности и вине, с ДиКаприо.'},
+  {id:'w_got', t:'Игра престолов', en:'Game of Thrones', y:'2011', type:'series', s:'⭐⭐ восторг', desc:'Борьба знатных домов за трон в фэнтези-мире. Продакшн, переплетённые сюжетные линии и проработанные герои — даже если фэнтези не твой жанр.'},
+  {id:'w_se7en', t:'Семь', en:'Se7en', y:'1995', type:'film', s:'⭐⭐ оч крутой', desc:'Два детектива ищут серийного убийцу, инсценирующего семь смертных грехов. Мрачный Финчер с легендарным финалом.'},
+  {id:'w_nightof', t:'Однажды ночью', en:'The Night Of', y:'2016', type:'series', s:'⭐⭐ 5/5', desc:'Студента обвиняют в убийстве после случайной ночи, и система медленно перемалывает его. Истина намеренно неразрешима.'},
+  {id:'w_catchme', t:'Поймай меня, если сможешь', en:'Catch Me If You Can', y:'2002', type:'film', s:'⭐⭐ восторг', desc:'Реальная история юного афериста, выдававшего себя за пилота и врача, и агента ФБР, что за ним гонится. ДиКаприо.'},
+  {id:'w_bb', t:'Во все тяжкие', en:'Breaking Bad', y:'2008', type:'series', s:'⭐ любимое', desc:'Учитель химии с раком становится наркобароном. Эталон превращения героя в злодея и каузальной точности сценария.'},
+  {id:'w_dark', t:'Тьма (Dark)', en:'Dark', y:'2017', type:'series', s:'⭐ любимое', desc:'Исчезновения детей в немецком городке вскрывают петли времени через поколения. Нелинейная головоломка, детерминизм-фатум.'},
+  {id:'w_severance', t:'Разделение, сезон 1', en:'Severance', y:'2022', type:'series', s:'⭐ отличный', desc:'Концепт расщепления сознания на работе и в личной жизни — мистери об идентичности.'},
+  {id:'w_pluribus', t:'Плюрибус (Одна из многих)', en:'Pluribus', y:'2025', type:'series', s:'⭐ отличный', desc:'Новый сериал Винса Гиллигана («Во все тяжкие») 2025 года, sci-fi о самом несчастном человеке, которому предстоит спасти мир от счастья.'},
+  {id:'w_prestige', t:'Престиж', en:'The Prestige', y:'2006', type:'film', s:'⭐ отличный', desc:'Два фокусника-соперника доводят вражду до одержимости и смертельных тайн. Нолан, twist с честно посеянными уликами.'},
+  {id:'w_illusionist', t:'Иллюзионист', en:'The Illusionist', y:'2006', type:'film', s:'⭐ отличный', desc:'Фокусник в Вене бросает вызов наследному принцу ради любви — и реальность размывается. Twist про обман и иллюзию.'},
+  {id:'w_shutter', t:'Остров проклятых', en:'Shutter Island', y:'2010', type:'film', s:'⭐ отличный', desc:'Маршал расследует исчезновение в психиатрической клинике на острове — и сам теряет почву. Скорсезе + ДиКаприо, twist-головоломка.'},
+  {id:'w_stevejobs', t:'Стив Джобс', en:'Steve Jobs', y:'2015', type:'film', s:'⭐ отличный', desc:'Три ключевых презентации Apple глазами окружения Джобса. Соркин, всё на острых диалогах и амбициях.'},
+  {id:'w_chicago7', t:'Суд над чикагской семёркой', en:'The Trial of the Chicago 7', y:'2020', type:'film', s:'⭐ оч хороший', desc:'Реальный политический процесс над организаторами протестов 1968-го. Диалоги Соркина.'},
+  {id:'w_budapest', t:'Отель «Гранд Будапешт»', en:'The Grand Budapest Hotel', y:'2014', type:'film', s:'⭐ отличный', desc:'Легендарный консьерж и его протеже впутаны в кражу картины и спор о наследстве. Стильный остроумный каприз Уэса Андерсона.'},
+  {id:'w_intouchables', t:'1+1 (Неприкасаемые)', en:'The Intouchables', y:'2011', type:'film', s:'⭐ отличный', desc:'Парализованный аристократ и его дерзкий помощник из предместья. Тёплый умный дуэт по реальной истории.'},
+  {id:'w_fightclub', t:'Бойцовский клуб', en:'Fight Club', y:'1999', type:'film', s:'⭐ классика', desc:'Офисный клерк и харизматичный анархист создают подпольный бойцовский клуб. Финчер, twist, перекодирующий весь фильм.'},
+  {id:'w_thegame', t:'Игра (The Game)', en:'The Game', y:'1997', type:'film', s:'⭐ отличный', desc:'Банкиру дарят таинственную «игру», которая захватывает всю его жизнь — и непонятно, что реально. Финчер-головоломка.'},
+  {id:'w_usualsuspects', t:'Подозрительные лица', en:'The Usual Suspects', y:'1995', type:'film', s:'⭐ отличный', desc:'Выживший в бойне рассказывает о мифическом преступнике Кайзере Созе. Эталонный финал, переворачивающий всё.'},
+  {id:'w_dttn', t:'Достучаться до небес', en:'Knockin on Heavens Door', y:'1997', type:'film', s:'⭐ отличный', desc:'Двое смертельно больных угоняют машину и едут к морю. Тёплая трагикомедия-роуд-муви.'},
+  {id:'w_parasite', t:'Паразиты', en:'Parasite', y:'2019', type:'film', s:'✅ эталон твиста', desc:'Бедная семья внедряется прислугой в дом богачей — и комедия опрокидывается в триллер. Пон Джун-хо, образцовый посев.'},
+  {id:'w_gonegirl', t:'Исчезнувшая (Gone Girl)', en:'Gone Girl', y:'2014', type:'film', s:'✅ понравился', desc:'Жена исчезает, муж становится подозреваемым — и правда оказывается изощрённее. Финчер, twist с уликами.'},
+  {id:'w_dragontattoo', t:'Девушка с татуировкой дракона', en:'The Girl with the Dragon Tattoo', y:'2011', type:'film', s:'✅ хороший', desc:'Журналист и хакерша расследуют исчезновение 40-летней давности в богатой семье. Мрачный детектив Финчера.'},
+  {id:'w_mollysgame', t:'Молли Гейм', en:'Mollys Game', y:'2017', type:'film', s:'✅ хороший', desc:'Реальная история женщины, построившей подпольную покерную империю для звёзд. Диалоги Соркина.'},
+  {id:'w_nocountry', t:'Старикам тут не место', en:'No Country for Old Men', y:'2007', type:'film', s:'✅ хороший', desc:'Охотник находит деньги с места бойни, за ним идёт хладнокровный убийца. Коэны, напряжение и банальность зла.'},
+  {id:'w_tetris', t:'Тетрис', en:'Tetris', y:'2023', type:'film', s:'✅ понравился', desc:'Реальная история борьбы за права на «Тетрис» между корпорациями и СССР. Бизнес-триллер.'},
+  {id:'w_dumbmoney', t:'Дурные деньги', en:'Dumb Money', y:'2023', type:'film', s:'✅ понравился', desc:'Реальная история, как реддиторы взвинтили акции GameStop против хедж-фондов. Динамичная финансовая сатира.'},
+  {id:'w_baby', t:'Олененок (Baby Reindeer)', en:'Baby Reindeer', y:'2024', type:'series', s:'✅ понравился', desc:'Реальная исповедь комика о преследовательнице и собственной травме. Тёмный психологический мини-сериал.'},
+  {id:'w_handmaid', t:'Рассказ служанки', en:'The Handmaids Tale', y:'2017', type:'series', s:'✅ атмосферный', desc:'Антиутопия, где женщины лишены прав и служат для деторождения. Атмосферно и потрясающе снято.'},
+  {id:'w_knives', t:'Достать ножи', en:'Knives Out', y:'2019', type:'film', s:'✅ хороший, не вау', desc:'Детектив расследует смерть патриарха в богатой семье интриганов. Стильный whodunit с уликами.'},
+  {id:'w_menu', t:'Меню (The Menu)', en:'The Menu', y:'2022', type:'film', s:'✅ неплохой, не вау', desc:'Гости элитного ресторана попадают на ужин, превращающийся в смертельную игру шефа. Сатира на элиту.'},
+  {id:'w_django', t:'Джанго освобождённый', en:'Django Unchained', y:'2012', type:'film', s:'✅ прекрасный', desc:'Освобождённый раб с охотником за головами идёт спасать жену с плантации. Тарантино, диалоги «затяжка-детонация».'},
+  {id:'w_revolver', t:'Револьвер', en:'Revolver', y:'2005', type:'film', s:'✅ хороший', desc:'Шулер мстит боссу казино и втягивается в эзотерическую игру против собственного эго. Самый спорный фильм Гая Ричи — стиль держит.'},
+  {id:'w_snatch', t:'Большой куш (Snatch)', en:'Snatch', y:'2000', type:'film', s:'⭐ отличный', desc:'Переплетённые криминальные истории вокруг украденного бриллианта и подпольного бокса. Эталон динамики и диалогов Ричи.'},
+  {id:'w_gentlemen', t:'Джентльмены', en:'The Gentlemen', y:'2019', type:'film', s:'⭐ отличный', desc:'Американец продаёт марихуановую империю в Лондоне, и вокруг сделки плетутся интриги. Динамика и диалоги Ричи.'},
+  {id:'w_ozark', t:'Озарк', en:'Ozark', y:'2017', type:'series', s:'🟡 медленный (бросил)', desc:'Финконсультант отмывает деньги картеля у озёр Миссури. Моральное скольжение как в «Во все тяжкие», но темп тебе показался слишком медленным.'},
+  {id:'w_saul', t:'Лучше звоните Солу', en:'Better Call Saul', y:'2015', type:'series', s:'🟡 бросил (стоит вернуться)', desc:'Превращение мелкого адвоката Джимми в Сола Гудмана. Приквел «Во все тяжкие»; медленный старт, но дальше затягивает.'},
+  {id:'w_founder', t:'Учредитель (The Founder)', en:'The Founder', y:'2016', type:'film', s:'❌ скучноватый', desc:'Реальная история, как Рэй Крок превратил McDonald’s в империю, оттеснив основателей. Размеренный байопик — тебе не хватило динамики.'},
+];
+
+// ===== РЕНДЕР =====
+const KEY = 'films-v1-';
+const OMDB_KEY = 'films-omdb-key';
+// ===== ОБЛАЧНАЯ ПАМЯТЬ (Supabase): статусы/оценки/комментарии — на всех устройствах =====
+const SB_URL = 'https://vubdsdkynvwvuiuospth.supabase.co';
+const SB_KEY = 'sb_publishable_RFGavx_9IqKPI283lMIAhw_ATxBZFoy';   // публичный ключ — безопасен в коде
+const SB_TABLE = 'watch_status';
+const sbHeaders = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+let STATE = {};       // film_id -> {status, rating, comment} — наполняется loadAll() до рендера
+let SB_OK = false;    // удалось ли соединиться с облаком
+// синхронное чтение из памяти; localStorage — оффлайн-зеркало
+function load(id){ if (STATE[id]) return STATE[id]; try { return JSON.parse(localStorage.getItem(KEY+'__cache'))?.[id] || {}; } catch(e){ return {}; } }
+// один запрос при старте: тянем все метки из облака
+async function loadAll(){
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/' + SB_TABLE + '?select=film_id,status,rating,comment', { headers: sbHeaders });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const rows = await r.json();
+    STATE = {};
+    rows.forEach(row => { STATE[row.film_id] = { status: row.status || '', rating: row.rating || 0, comment: row.comment || '' }; });
+    try { localStorage.setItem(KEY + '__cache', JSON.stringify(STATE)); } catch(e){}
+    SB_OK = true;
+  } catch(e){
+    try { STATE = JSON.parse(localStorage.getItem(KEY + '__cache')) || {}; } catch(_){ STATE = {}; }
+    SB_OK = false;
+  }
+}
+// сохранение: оптимистично в память+кеш, затем upsert в облако; тост при сбое сети
+async function save(id, d){
+  STATE[id] = d;
+  try { localStorage.setItem(KEY + '__cache', JSON.stringify(STATE)); } catch(e){}
+  try {
+    const body = { film_id: id, status: d.status || '', rating: d.rating || 0, comment: d.comment || '' };
+    const r = await fetch(SB_URL + '/rest/v1/' + SB_TABLE + '?on_conflict=film_id', {
+      method: 'POST',
+      headers: Object.assign({}, sbHeaders, { 'Prefer': 'resolution=merge-duplicates' }),
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    return true;
+  } catch(e){ toast('⚠ Нет сети — метка не ушла в облако'); return false; }
+}
+function getApiKey(){ try { return localStorage.getItem(OMDB_KEY) || 'b1087f4b'; } catch(e){ return 'b1087f4b'; } }
+function fetchPoster(card, en, y){
+  const k=getApiKey(); if(!k) return;
+  const img=card.querySelector('.poster'), ph=card.querySelector('.poster-ph'), badge=card.querySelector('.imdb-badge');
+  function apply(d){
+    let okPoster=false;
+    if(d && d.Poster && d.Poster!=='N/A' && img){ img.src=d.Poster; img.style.display='block'; if(ph) ph.style.display='none'; okPoster=true; }
+    if(d && d.imdbRating && d.imdbRating!=='N/A' && badge){ badge.textContent='IMDb '+d.imdbRating; badge.style.display='inline-block'; }
+    return okPoster;
+  }
+  const base='https://www.omdbapi.com/?apikey='+encodeURIComponent(k)+'&t='+encodeURIComponent(en);
+  fetch(base+(y?'&y='+encodeURIComponent(y):'')).then(r=>r.json()).then(d=>{
+    if(!apply(d) && y){ fetch(base).then(r=>r.json()).then(apply).catch(()=>{}); }  // ретрай без года
+  }).catch(()=>{});
+}
+function kpUrl(t){ return 'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(t); }
+
+function makeCard(f, isTop, isWatched){
+  const st = load(f.id);
+  const card = document.createElement('div');
+  card.className = 'film' + (isTop ? ' top' : '');
+  card.dataset.id = f.id; card.dataset.type = f.type; card.dataset.top = isTop?'1':'0';
+  card.dataset.en = f.en; card.dataset.y = f.y;
+  // poster
+  const posterHTML = `<div class="poster-wrap">
+    <img class="poster" alt="${f.t}" style="display:none">
+    <div class="poster-ph">${f.t}</div>
+    <a class="kp-link" href="${kpUrl(f.t)}" target="_blank">Кинопоиск ↗</a>
+  </div>`;
+  let bodyHTML = `<div class="body"><h3>${f.type==='series'?'📺':'🎬'} ${f.t}</h3>
+    <div class="meta">${f.m}${isTop?` · <span class="conf">${f.conf}</span>`:''}<span class="imdb-badge" style="display:none"></span></div>
+    <div class="desc">${f.desc||''}</div>`;
+  if (isWatched) bodyHTML += `<div class="why"><span class="userScore">Твоя оценка: ${f.s}</span></div>`;
+  else bodyHTML += `<div class="why"><strong>Почему тебе:</strong> ${f.why}</div>`;
+  bodyHTML += `<div class="controls">
+    <button class="st-btn" data-st="plan">👀 В планах</button>
+    <button class="st-btn" data-st="watching">▶ Смотрю</button>
+    <button class="st-btn" data-st="done">✅ Посмотрел</button>
+    <button class="st-btn" data-st="nope">❌ Не зашло</button>
+    <span class="rating" title="Моя оценка 1-10">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<span class="star" data-n="${n}">★</span>`).join('')}</span>
+    <span class="rating-label"></span>
+  </div>
+  <textarea class="comment" placeholder="Мой комментарий: за что понравилось / не понравилось…"></textarea></div>`;
+  card.innerHTML = posterHTML + bodyHTML;
+  // poster fallback
+  const img = card.querySelector('.poster'); const ph = card.querySelector('.poster-ph');
+  if (img) img.addEventListener('error', ()=>{ img.style.display='none'; ph.style.display='flex'; });
+  fetchPoster(card, f.en, f.y);
+  // restore
+  if (st.status) { const b=card.querySelector(`.st-btn[data-st="${st.status}"]`); if(b) b.classList.add('on'); if(st.status==='done'||st.status==='nope') card.classList.add('watched-done'); }
+  if (st.rating) setStars(card, st.rating);
+  if (st.comment) card.querySelector('.comment').value = st.comment;
+  // handlers
+  card.querySelectorAll('.st-btn').forEach(b=>b.addEventListener('click', ()=>{
+    const cur=load(f.id); const ns=cur.status===b.dataset.st?'':b.dataset.st;
+    card.querySelectorAll('.st-btn').forEach(x=>x.classList.remove('on'));
+    if(ns) b.classList.add('on'); card.classList.toggle('watched-done', ns==='done'||ns==='nope');
+    cur.status=ns; save(f.id,cur); updateProgress(); toast('Сохранено');
+  }));
+  card.querySelectorAll('.star').forEach(s=>s.addEventListener('click', ()=>{
+    const cur=load(f.id); const n=+s.dataset.n; cur.rating=cur.rating===n?0:n; setStars(card,cur.rating); save(f.id,cur); toast('Оценка сохранена');
+  }));
+  const ta=card.querySelector('.comment'); let tm;
+  ta.addEventListener('input', ()=>{ clearTimeout(tm); tm=setTimeout(()=>{ const cur=load(f.id); cur.comment=ta.value; save(f.id,cur); },400); });
+  return card;
+}
+function setStars(card,n){ card.querySelectorAll('.star').forEach(s=>s.classList.toggle('lit',+s.dataset.n<=n)); card.querySelector('.rating-label').textContent=n?n+'/10':''; }
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),1200); }
+
+const secTop=document.querySelector('[data-sec="top"]'), secQ=document.querySelector('[data-sec="queue"]'), secW=document.querySelector('[data-sec="watched"]');
+function renderAll(){
+  secTop.innerHTML=''; secQ.innerHTML=''; secW.innerHTML='';
+  TOP.forEach(f=>secTop.appendChild(makeCard(f,true,false)));
+  QUEUE.forEach(f=>secQ.appendChild(makeCard(f,false,false)));
+  WATCHED.forEach(f=>secW.appendChild(makeCard(f,false,true)));
+  applyFilter(); updateProgress();
+}
+
+// OMDb key
+const keyInput=document.getElementById('omdb-key'), keyStatus=document.getElementById('key-status');
+keyInput.value=getApiKey();
+function refreshKeyStatus(){ keyStatus.innerHTML = getApiKey()? '<span class="ok">✓ постеры включены</span>' : '<span style="color:var(--muted)">без ключа — плейсхолдеры</span>'; }
+refreshKeyStatus();
+let kt; keyInput.addEventListener('input', ()=>{ clearTimeout(kt); kt=setTimeout(()=>{ try{localStorage.setItem(OMDB_KEY, keyInput.value.trim());}catch(e){} refreshKeyStatus(); renderAll(); toast(getApiKey()?'Постеры загружаются…':'Ключ убран'); },500); });
+
+// ===== ФИЛЬТРЫ + ПРОГРЕСС =====
+function updateProgress(){ const recs=[...TOP,...QUEUE]; const done=recs.filter(f=>load(f.id).status==='done').length;
+  document.getElementById('progress').textContent=`Посмотрено из рекомендаций: ${done} / ${recs.length}`; }
+let curFilter='all';
+function applyFilter(){ const q=document.getElementById('search').value.trim().toLowerCase();
+  document.querySelectorAll('.film').forEach(c=>{ const st=load(c.dataset.id); let ok=true;
+    if(curFilter==='film') ok=c.dataset.type==='film'; else if(curFilter==='series') ok=c.dataset.type==='series';
+    else if(curFilter==='top') ok=c.dataset.top==='1'; else if(curFilter==='plan') ok=st.status==='plan'; else if(curFilter==='done') ok=st.status==='done';
+    if(ok&&q) ok=c.textContent.toLowerCase().indexOf(q)!==-1; c.classList.toggle('hidden',!ok); }); }
+document.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click', ()=>{ document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); curFilter=ch.dataset.f; applyFilter(); }));
+document.getElementById('search').addEventListener('input', applyFilter);
+
+// старт: грузим облако ДО рендера, чтобы метки появились сразу на любом устройстве
+loadAll().then(() => {
+  renderAll();
+  if (!SB_OK) toast('⚠ Облако недоступно — показаны последние данные');
+}).catch(() => renderAll());
+
+// ===== LIGHTBOX (клик по постеру → крупно) =====
+const lb=document.createElement('div'); lb.className='lightbox';
+const lbImg=document.createElement('img');
+const lbClose=document.createElement('button'); lbClose.className='lightbox-close'; lbClose.textContent='×'; lbClose.setAttribute('aria-label','Закрыть');
+lb.appendChild(lbImg); lb.appendChild(lbClose); document.body.appendChild(lb);
+function bigUrl(src){ if(!src) return src; return src.replace(/\._V1_.*?\.jpg/i, '._V1_FMjpg_UX1000_.jpg'); }
+function openLb(src){
+  lbImg.onerror=function(){ lbImg.onerror=null; lbImg.src=src; };  // если увеличенный не отдался — оригинал
+  lbImg.src=bigUrl(src); lb.classList.add('show'); document.body.style.overflow='hidden';
+}
+function closeLb(){ lb.classList.remove('show'); lbImg.src=''; document.body.style.overflow=''; }
+document.addEventListener('click', function(e){
+  const t=e.target;
+  if(t && t.classList && t.classList.contains('poster') && t.src && t.style.display!=='none'){ e.preventDefault(); openLb(t.src); }
+});
+lb.addEventListener('click', closeLb);
+document.addEventListener('keydown', function(e){ if(e.key==='Escape' && lb.classList.contains('show')) closeLb(); });
+</script>
+</body>
+</html>
