@@ -336,14 +336,15 @@ function makeCard(f){
     <span class="tag mode">${LABELS.load[f.load]}</span><span class="tag mode">${LABELS.tempo[f.tempo]}</span>
     <span class="tag">${LABELS.tone[f.tone]}</span><span class="tag">${LABELS.ctx[f.ctx]}</span></div>`;
   // INV-C: моя ставка (read-only бейдж) показывается на воронке; ≠ звёзды зрителя
-  const myBet = (sec==='pool' && f.myRating) ? `<div class="myrating">🎯 Моя ставка: ${f.myRating}/10</div>` : '';
+  const myBet = (f.myRating && sec!=='mylist') ? `<div class="myrating">🎯 Моя ставка: ${f.myRating}/10</div>` : '';  // pool + watched (на watched — рядом с фактом зрителя = калибровка)
   let bodyHTML = `<div class="body"><h3>${icon} ${f.t}${volBadge}</h3>
     <div class="meta">${f.m||''}<span class="imdb-badge" style="display:none"></span></div>
     ${tagsHTML}${myBet}
     <div class="desc">${f.desc||''}</div>`;
   if (sec === 'watched') {
     const verdict = st.status==='nope' ? `<span class="seen-verdict nope">❌ не зашло</span>` : st.status==='done' ? `<span class="seen-verdict done">✅ посмотрел</span>` : '';
-    bodyHTML += `<div class="why"><span class="userScore">Оценка: ${f.s||'—'}</span> ${verdict}</div>`;
+    const authorS = f.s ? `<span class="userScore">${f.s}</span> ` : '';   // авторская метка для 42 pre-seen; ставка зрителя — звёздами ниже
+    bodyHTML += `<div class="why">${authorS}${verdict}</div>`;
   } else if (f.why) {
     bodyHTML += `<div class="why"><strong>Почему тебе:</strong> ${f.why}</div>`;
   }
@@ -357,11 +358,9 @@ function makeCard(f){
       <button class="st-btn" data-st="nope">❌ Не зашло</button>
       <button class="st-btn back" data-act="back">↩ В воронку</button></div>`;
   }
-  // оценка зрителя (звёзды) + коммент — на pool и mylist (на watched оценка показана выше)
-  if (sec !== 'watched') {
-    bodyHTML += `<div class="rate-line">Твоя оценка: <span class="rating">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<span class="star" data-n="${n}">★</span>`).join('')}</span><span class="rating-label"></span></div>
+  // оценка зрителя (звёзды) + коммент — на ВСЕХ вкладках (на watched факт зрителя рядом с «Моя ставка» = калибровка)
+  bodyHTML += `<div class="rate-line">Твоя оценка: <span class="rating">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<span class="star" data-n="${n}">★</span>`).join('')}</span><span class="rating-label"></span></div>
     <textarea class="comment" placeholder="Мой комментарий…"></textarea>`;
-  }
   bodyHTML += `</div>`;
   card.innerHTML = posterHTML + bodyHTML;
   const img = card.querySelector('.poster'); const ph = card.querySelector('.poster-ph');
