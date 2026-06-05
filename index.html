@@ -86,6 +86,7 @@ details.taste li { margin: 5px 0; }
 .st-btn.back { color: var(--muted); }
 .st-btn.on[data-st="watching"] { background: var(--watch); color: white; border-color: var(--watch); }
 .st-btn.on[data-st="done"] { background: var(--good); color: white; border-color: var(--good); }
+.st-btn.seen { background: var(--good); color: #fff; border-color: var(--good); font-weight: 600; }
 .st-btn.on[data-st="nope"] { background: var(--bad); color: white; border-color: var(--bad); }
 .rate-line { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .rating { display: inline-flex; gap: 1px; }
@@ -180,6 +181,7 @@ details.taste li { margin: 5px 0; }
     <input id="omdb-key" type="text" placeholder="бесплатный OMDb-ключ">
     <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">получить</a>
     <span id="key-status"></span>
+    <div style="width:100%; font-size:12px; color:var(--muted); margin-top:6px;">Постеры серые? Общий ключ исчерпал дневной лимит — впиши свой бесплатный («получить» → вставь сюда), вернутся сразу. Грузятся теперь лениво, по мере прокрутки.</div>
   </div>
 </details>
 
@@ -372,6 +374,11 @@ function fetchPoster(card, en, y){
   const base='https://www.omdbapi.com/?apikey='+encodeURIComponent(k)+'&t='+encodeURIComponent(en);
   fetch(base+(y?'&y='+encodeURIComponent(y):'')).then(r=>r.json()).then(d=>{ if(!apply(d) && y){ fetch(base).then(r=>r.json()).then(apply).catch(()=>{}); } }).catch(()=>{});
 }
+// Ленивая загрузка постеров: запрашиваем OMDb только для видимых карточек.
+// Иначе при открытии грузятся все записи × 3 вкладки сразу → дневной лимит ключа исчерпывается, постеры пропадают у всех.
+const posterObserver = ('IntersectionObserver' in window) ? new IntersectionObserver((entries, obs)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ const c=e.target; fetchPoster(c, c.dataset.posterEn||'', c.dataset.posterY||''); obs.unobserve(c); } });
+}, {rootMargin:'300px'}) : null;
 function kpUrl(t){ return 'https://www.kinopoisk.ru/index.php?kp_query='+encodeURIComponent(t); }
 function ytUrl(t){ return 'https://www.youtube.com/results?search_query='+encodeURIComponent(t+' трейлер на русском'); }
 
@@ -410,7 +417,7 @@ function makeCard(f){
   }
   // контролы по вкладке
   if (sec === 'pool') {
-    bodyHTML += `<div class="controls"><button class="st-btn add" data-act="add">➕ Буду смотреть</button><button class="st-btn rej" data-act="reject">🚫 Отклонить</button></div>`;
+    bodyHTML += `<div class="controls"><button class="st-btn add" data-act="add">➕ Буду смотреть</button><button class="st-btn seen" data-act="seen">✅ Смотрел</button><button class="st-btn rej" data-act="reject">🚫 Отклонить</button></div>`;
   } else if (sec === 'mylist') {
     bodyHTML += `<div class="controls">
       <button class="st-btn" data-st="watching">▶ Смотрю</button>
@@ -425,7 +432,8 @@ function makeCard(f){
   card.innerHTML = posterHTML + bodyHTML;
   const img = card.querySelector('.poster'); const ph = card.querySelector('.poster-ph');
   if (img) img.addEventListener('error', ()=>{ img.style.display='none'; ph.style.display='flex'; });
-  fetchPoster(card, f.en, f.y);
+  card.dataset.posterEn = f.en||''; card.dataset.posterY = f.y||'';
+  if (posterObserver) posterObserver.observe(card); else fetchPoster(card, f.en, f.y);
   if (st.status && sec==='mylist') { const b=card.querySelector(`.st-btn[data-st="${st.status}"]`); if(b) b.classList.add('on'); }
   if (st.rating) setStars(card, st.rating);
   if (st.comment) { const c=card.querySelector('.comment'); if(c) c.value = st.comment; }
@@ -434,6 +442,7 @@ function makeCard(f){
     const cur=load(f.id);
     if (b.dataset.act==='add') { cur.status='plan'; save(f.id,cur); renderAll(); toast('➕ В «Мой список»'); return; }
     if (b.dataset.act==='reject') { cur.status='rejected'; save(f.id,cur); renderAll(); toast('🚫 Отклонён'); return; }
+    if (b.dataset.act==='seen') { cur.status='done'; save(f.id,cur); renderAll(); toast('✅ В «Просмотрено»'); return; }
     if (b.dataset.act==='back') { cur.status=''; save(f.id,cur); renderAll(); toast('↩ Вернул в воронку'); return; }
     const ns = cur.status===b.dataset.st ? 'watching' : b.dataset.st;  // снять done/nope → обратно watching (в списке)
     cur.status=ns; save(f.id,cur); renderAll(); toast(ns==='done'||ns==='nope' ? 'В «Просмотрено»' : 'Сохранено');
