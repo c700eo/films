@@ -158,6 +158,11 @@ details.taste li { margin: 5px 0; }
     <input id="search" type="search" placeholder="Поиск…">
     <button class="btn" id="pickBtn">🎲 Выбери за меня</button>
     <button class="btn ghost" id="resetBtn">Сбросить</button>
+    <select id="sortSel" class="btn ghost" style="padding:5px 8px; cursor:pointer;" title="Ранжировать по моей оценке-прогнозу">
+      <option value="">↕ Порядок</option>
+      <option value="my_desc">🎯 Моя оценка ↓</option>
+      <option value="my_asc">🎯 Моя оценка ↑</option>
+    </select>
     <span id="count"></span>
   </div>
   <div id="axesPanel">
@@ -455,7 +460,7 @@ function setStars(card,n){ card.querySelectorAll('.star').forEach(s=>s.classList
 function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),1400); }
 
 // ===== ОСИ ФИЛЬТРА (5 осей, без статуса — INV-G); состояние вне DOM =====
-const AX = { type:'', load:'', tempo:'', tone:'', ctx:'', exclude:false, q:'' };
+const AX = { type:'', load:'', tempo:'', tone:'', ctx:'', exclude:false, q:'', sort:'' };
 const AXES = [
   {key:'type', el:'ax-type', opts:[['film','🎬 Фильм'],['series','📺 Сериал']]},
   {key:'load', el:'ax-load', opts:[['light','лёгкое'],['heavy','тяжёлое-думать']]},
@@ -485,8 +490,12 @@ function renderAll(){
   const bucket = { pool:[], mylist:[], watched:[] };
   films.forEach(f=>{ bucket[sectionOf(f)].push(f); });
   ['pool','mylist','watched'].forEach(tab=>{
+    let items = bucket[tab];
+    // ранжирование по моей оценке-прогнозу (копия массива — не мутируем bucket; записи без myRating уходят вниз при ↓)
+    if(AX.sort==='my_desc') items=items.slice().sort((a,b)=>(b.myRating||0)-(a.myRating||0));
+    else if(AX.sort==='my_asc') items=items.slice().sort((a,b)=>(a.myRating||0)-(b.myRating||0));
     const host=conts[tab]; host.innerHTML='';
-    bucket[tab].forEach(f=>{
+    items.forEach(f=>{
       const card=makeCard(f);
       if(!isVisible(f)) card.classList.add('hidden');  // фильтр ко ВСЕМ вкладкам
       host.appendChild(card);
@@ -529,7 +538,8 @@ let kt; keyInput.addEventListener('input', ()=>{ clearTimeout(kt); kt=setTimeout
 document.getElementById('search').addEventListener('input', e=>{ AX.q=e.target.value.trim().toLowerCase(); renderAll(); });
 document.getElementById('excBtn').addEventListener('click', ()=>{ AX.exclude=!AX.exclude; syncChips(); renderAll(); });
 document.getElementById('pickBtn').addEventListener('click', pickForMe);
-document.getElementById('resetBtn').addEventListener('click', ()=>{ Object.assign(AX,{type:'',load:'',tempo:'',tone:'',ctx:'',exclude:false,q:''}); document.getElementById('search').value=''; syncChips(); renderAll(); });
+document.getElementById('sortSel').addEventListener('change', e=>{ AX.sort=e.target.value; renderAll(); });
+document.getElementById('resetBtn').addEventListener('click', ()=>{ Object.assign(AX,{type:'',load:'',tempo:'',tone:'',ctx:'',exclude:false,q:'',sort:''}); document.getElementById('search').value=''; document.getElementById('sortSel').value=''; syncChips(); renderAll(); });
 document.getElementById('filtToggle').addEventListener('click', ()=>{ document.getElementById('axesPanel').classList.toggle('open'); });
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>showTab(t.dataset.tab)));
 
